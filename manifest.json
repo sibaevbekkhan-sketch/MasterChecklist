@@ -1,0 +1,11 @@
+{
+    "name": "Master Checklist",
+    "short_name": "MasterChecklist",
+    "description": "Обучающая платформа для строителей",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#f5f7fa",
+    "theme_color": "#2563eb",
+    "lang": "ru",
+    "icons": []
+}
