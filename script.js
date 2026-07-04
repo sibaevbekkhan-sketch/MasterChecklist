@@ -33,8 +33,6 @@ const NOTES_KEY = 'master_academy_notes';
 const THEME_KEY = 'master_academy_theme';
 const CHECKLISTS_KEY = 'master_checklist_data';
 const CUSTOM_MODULES_KEY = 'master_custom_modules';
-const CUSTOM_CONTENT_KEY = 'master_custom_content';
-const MODULE_CONTENT_KEY = 'master_module_content';
 const MODULE_PDF_KEY = 'master_module_pdf';
 
 function loadProgress() {
@@ -90,27 +88,7 @@ function saveCustomModules(data) {
     localStorage.setItem(CUSTOM_MODULES_KEY, JSON.stringify(data));
 }
 
-function loadCustomContent() {
-    try { return JSON.parse(localStorage.getItem(CUSTOM_CONTENT_KEY)) || {}; } catch { return {}; }
-}
-
-function saveCustomContent(data) {
-    localStorage.setItem(CUSTOM_CONTENT_KEY, JSON.stringify(data));
-}
-
 let customModules = loadCustomModules();
-let customContent = loadCustomContent();
-
-// === Module Content Storage (for editor) ===
-function loadModuleContents() {
-    try { return JSON.parse(localStorage.getItem(MODULE_CONTENT_KEY)) || {}; } catch { return {}; }
-}
-
-function saveModuleContents(data) {
-    localStorage.setItem(MODULE_CONTENT_KEY, JSON.stringify(data));
-}
-
-let moduleContents = loadModuleContents();
 
 // === PDF Attachments Storage ===
 function loadPdfAttachments() {
@@ -356,19 +334,8 @@ function parseMarkdown(text) {
     return html;
 }
 
-// === Module Content Loader ===
-function getModuleRawContent(moduleId) {
-    // Priority: editor content > custom imported > file-based
-    if (moduleContents[moduleId]) return moduleContents[moduleId];
-    if (customContent[moduleId]) return customContent[moduleId];
-    return null;
-}
-
+// === Module Content Loader (files only) ===
 async function loadModuleContent(moduleId) {
-    const raw = getModuleRawContent(moduleId);
-    if (raw) return parseMarkdown(raw);
-
-    // Fall back to file-based modules
     const padId = String(moduleId).padStart(2, '0');
     const url = 'modules/module-' + padId + '.md';
     try {
@@ -382,9 +349,6 @@ async function loadModuleContent(moduleId) {
 }
 
 async function loadModuleRawContent(moduleId) {
-    const raw = getModuleRawContent(moduleId);
-    if (raw) return raw;
-
     const padId = String(moduleId).padStart(2, '0');
     const url = 'modules/module-' + padId + '.md';
     try {
@@ -406,7 +370,6 @@ async function renderModuleDetail(moduleId) {
     const idx = allModules.indexOf(module);
     const done = progress[module.id] === true;
     const noteText = notes[moduleId] || '';
-    const hasContent = !!(moduleContents[moduleId] || customContent[moduleId]);
     const pdfData = pdfAttachments[moduleId];
 
     const container = document.getElementById('moduleDetail');
@@ -429,38 +392,25 @@ async function renderModuleDetail(moduleId) {
                     <div class="editor-panel__header">
                         <div class="editor-panel__tabs">
                             <button class="editor-tab active" id="tabEdit" onclick="switchEditorTab('edit')">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                                Редактор
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                Исходный текст
                             </button>
                             <button class="editor-tab" id="tabPreview" onclick="switchEditorTab('preview')">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                                 Просмотр
                             </button>
                         </div>
-                        <button class="btn btn-study btn-save-material" onclick="saveModuleContent(${moduleId})">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                            Сохранить
-                        </button>
-                    </div>
-
-                    <div class="editor-hints">
-                        <span class="editor-hint" onclick="insertMd('# ')"># Заголовок</span>
-                        <span class="editor-hint" onclick="insertMd('## ')">## Подзаголовок</span>
-                        <span class="editor-hint" onclick="insertMd('**', '**')">**жирный**</span>
-                        <span class="editor-hint" onclick="insertMd('*', '*')">*курсив*</span>
-                        <span class="editor-hint" onclick="insertMd('- ')">— список</span>
-                        <span class="editor-hint" onclick="insertCodeBlock()">код</span>
                     </div>
 
                     <div class="editor-body">
                         <div class="editor-pane" id="editorPane">
-                            <textarea class="editor-textarea" id="moduleEditor" spellcheck="false" placeholder="Начните писать учебный материал...&#10;&#10;Используйте Markdown для форматирования:&#10;# Заголовок&#10;## Подзаголовок&#10;- Пункт списка&#10;**жирный текст**&#10;*курсив*"></textarea>
+                            <textarea class="editor-textarea" id="moduleEditor" readonly spellcheck="false" placeholder="Загрузка..."></textarea>
                         </div>
                         <div class="editor-pane editor-pane--preview" id="previewPane" style="display:none">
                             <div class="module-content" id="modulePreview">
                                 <div class="editor-empty-state">
                                     <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                                    <p>Напишите материал и нажмите «Просмотр», чтобы увидеть результат</p>
+                                    <p>Нажмите «Просмотр», чтобы увидеть отформатированный материал</p>
                                 </div>
                             </div>
                         </div>
@@ -547,7 +497,7 @@ function switchEditorTab(tab) {
     if (tab === 'preview') {
         if (preview && editor) {
             const md = editor.value.trim();
-            preview.innerHTML = md ? parseMarkdown(md) : '<div class="editor-empty-state"><p>Материал пока не написан</p></div>';
+            preview.innerHTML = md ? parseMarkdown(md) : '<div class="editor-empty-state"><p>Материал пока не добавлен</p></div>';
         }
         editorPane.style.display = 'none';
         previewPane.style.display = '';
@@ -558,38 +508,7 @@ function switchEditorTab(tab) {
         previewPane.style.display = 'none';
         tabEdit.classList.add('active');
         tabPreview.classList.remove('active');
-        editor.focus();
     }
-}
-
-function insertMd(before, after) {
-    const editor = document.getElementById('moduleEditor');
-    if (!editor) return;
-    const start = editor.selectionStart;
-    const end = editor.selectionEnd;
-    const selected = editor.value.substring(start, end);
-    const replacement = before + (selected || 'текст') + (after || '');
-    editor.setRangeText(replacement, start, end, 'select');
-    editor.focus();
-}
-
-function insertCodeBlock() {
-    const editor = document.getElementById('moduleEditor');
-    if (!editor) return;
-    const start = editor.selectionStart;
-    const end = editor.selectionEnd;
-    const selected = editor.value.substring(start, end);
-    const replacement = '\n```\n' + (selected || 'код') + '\n```\n';
-    editor.setRangeText(replacement, start, end, 'select');
-    editor.focus();
-}
-
-function saveModuleContent(moduleId) {
-    const editor = document.getElementById('moduleEditor');
-    if (!editor) return;
-    moduleContents[moduleId] = editor.value;
-    saveModuleContents(moduleContents);
-    showToast('Материал сохранён');
 }
 
 // === PDF Presentation ===
@@ -817,11 +736,9 @@ async function handleImportModule(event) {
             fileName: file.name,
         };
 
-        // Save module metadata and content
+        // Save module metadata only
         customModules.push(newModule);
-        customContent[newId] = text;
         saveCustomModules(customModules);
-        saveCustomContent(customContent);
 
         // Re-render modules list and navigate to it
         showToast('Модуль "' + name + '" импортирован');
@@ -1185,14 +1102,12 @@ function renderSettings() {
 // === Export / Import ===
 function exportData() {
     const data = {
-        version: 4,
+        version: 5,
         exportedAt: new Date().toISOString(),
         progress,
         notes,
         checklists: checklistsData,
         customModules,
-        customContent,
-        moduleContents,
         pdfAttachments,
         theme: document.documentElement.getAttribute('data-theme'),
     };
@@ -1221,8 +1136,6 @@ function importData() {
                 if (data.notes) { notes = data.notes; saveNotes(notes); }
                 if (data.checklists) { checklistsData = data.checklists; saveChecklists(checklistsData); }
                 if (data.customModules) { customModules = data.customModules; saveCustomModules(customModules); }
-                if (data.customContent) { customContent = data.customContent; saveCustomContent(customContent); }
-                if (data.moduleContents) { moduleContents = data.moduleContents; saveModuleContents(moduleContents); }
                 if (data.pdfAttachments) { pdfAttachments = data.pdfAttachments; savePdfAttachments(pdfAttachments); }
                 if (data.theme) { document.documentElement.setAttribute('data-theme', data.theme); saveTheme(data.theme); }
                 showToast('Данные импортированы');
@@ -1242,15 +1155,11 @@ function resetAll() {
     notes = {};
     checklistsData = { lists: [] };
     customModules = [];
-    customContent = {};
-    moduleContents = {};
     pdfAttachments = {};
     saveProgress(progress);
     saveNotes(notes);
     saveChecklists(checklistsData);
     saveCustomModules(customModules);
-    saveCustomContent(customContent);
-    saveModuleContents(moduleContents);
     savePdfAttachments(pdfAttachments);
     showToast('Все данные сброшены');
     navigateTo('home');
