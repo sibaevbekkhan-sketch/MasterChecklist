@@ -1,29 +1,21 @@
-// === Module Data ===
-const MODULES = [
-    { id: 1, name: 'Профессия мастера строительного участка', desc: 'Роль и обязанности мастера, карьерный путь, ключевые компетенции для успешной работы на строительной площадке.' },
-    { id: 2, name: 'Организация рабочего дня мастера', desc: 'Планирование смены, расстановка задач, контроль выполнения и оптимизация рабочих процессов.' },
-    { id: 3, name: 'Документация мастера', desc: 'Виды строительной документации, оформление журналов, актов и исполнительной документации.' },
-    { id: 4, name: 'Охрана труда', desc: 'Основы безопасности на строительной площадке, инструктаж, СИЗ и нормативные требования.' },
-    { id: 5, name: 'Контроль качества', desc: 'Методы контроля, приёмка работ, дефекты и способы их устранения на различных этапах.' },
-    { id: 6, name: 'Управление строительной бригадой', desc: 'Мотивация персонала, распределение обязанностей, разрешение конфликтов и тимбилдинг.' },
-    { id: 7, name: 'Работа с техникой', desc: 'Виды строительной техники, основы эксплуатации, координация с механизаторами.' },
-    { id: 8, name: 'Материалы и логистика', desc: 'Учёт материалов, приёмка на площадке, хранение и контроль расхода.' },
-    { id: 9, name: 'Нормативно-правовое регулирование', desc: 'СНиП, ГОСТ, ТКП — основные нормативные документы, влияющие на работу мастера.' },
-    { id: 10, name: 'Свайные работы', desc: 'Технологии забивки и бурения свай, контроль глубины и вертикальности, приёмка.' },
-    { id: 11, name: 'Арматурные работы', desc: 'Виды арматуры, вязка и сварка, защитный слой, контроль по чертежам.' },
-    { id: 12, name: 'Опалубочные работы', desc: 'Виды опалубки, сборка, контроль геометрии, демонтаж и требования к поверхности.' },
-    { id: 13, name: 'Бетонные работы', desc: 'Подготовка, заливка, вибрирование, уход за бетоном и контроль прочности.' },
-    { id: 14, name: 'Монтаж строительных конструкций', desc: 'Сборные конструкции, крановые работы, стыковка и контроль монтажа.' },
-    { id: 15, name: 'Исполнительная документация', desc: 'Оформление скрытых работ, акты освидетельствования, исполнительные схемы.' },
-    { id: 16, name: 'Взаимодействие с прорабом', desc: 'Коммуникация в строительной команде, передача информации, совместное принятие решений.' },
-    { id: 17, name: 'Производственные кейсы', desc: 'Разбор реальных ситуаций с площадок: ошибки, решения, извлечённые уроки.' },
-    { id: 18, name: 'Подготовка к должности прораба', desc: 'Что нужно знать и уметь для перехода на позицию прораба, план развития.' },
-];
+// === Module Data (loaded from modules/manifest.json) ===
+let MODULES = [];
+let MODULE_ICONS = [];
 
-const MODULE_ICONS = [
-    '👷', '📅', '📄', '⛑️', '✅', '👷‍♂️', '🚜', '📦',
-    '⚖️', '🔩', '🔗', '🪵', '🧱', '🏗️', '📋', '🤝', '💼', '📈'
-];
+async function loadManifest() {
+    try {
+        const response = await fetch('modules/manifest.json');
+        if (!response.ok) throw new Error('Manifest not found');
+        MODULES = await response.json();
+        MODULE_ICONS = MODULE_ICONS_PLACEHOLDER;
+    } catch (err) {
+        console.error('Failed to load manifest:', err);
+        MODULES = [];
+        MODULE_ICONS = [];
+    }
+}
+
+const MODULE_ICONS_PLACEHOLDER = ['📚'];
 
 const TOTAL_MODULES = MODULES.length;
 
@@ -32,7 +24,6 @@ const STORAGE_KEY = 'master_academy_progress';
 const NOTES_KEY = 'master_academy_notes';
 const THEME_KEY = 'master_academy_theme';
 const CHECKLISTS_KEY = 'master_checklist_data';
-const CUSTOM_MODULES_KEY = 'master_custom_modules';
 const MODULE_PDF_KEY = 'master_module_pdf';
 
 function loadProgress() {
@@ -79,17 +70,6 @@ function saveChecklists(data) {
 
 let checklistsData = loadChecklists();
 
-// === Custom Modules Storage ===
-function loadCustomModules() {
-    try { return JSON.parse(localStorage.getItem(CUSTOM_MODULES_KEY)) || []; } catch { return []; }
-}
-
-function saveCustomModules(data) {
-    localStorage.setItem(CUSTOM_MODULES_KEY, JSON.stringify(data));
-}
-
-let customModules = loadCustomModules();
-
 // === PDF Attachments Storage ===
 function loadPdfAttachments() {
     try { return JSON.parse(localStorage.getItem(MODULE_PDF_KEY)) || {}; } catch { return {}; }
@@ -102,7 +82,7 @@ function savePdfAttachments(data) {
 let pdfAttachments = loadPdfAttachments();
 
 function getAllModules() {
-    return [...MODULES, ...customModules];
+    return MODULES;
 }
 
 // === Helpers ===
@@ -180,26 +160,23 @@ function renderHome() {
 
     if (modulesPreview) {
         // Show up to 3 modules: prioritize unfinished, then any
-        const builtIn = MODULES.filter(m => !progress[m.id]).slice(0, 2);
-        const imported = customModules.filter(m => !progress[m.id]).slice(0, 1);
-        let preview = [...builtIn, ...imported];
+        let preview = MODULES.filter(m => !progress[m.id]).slice(0, 3);
         if (preview.length < 3) {
             const remaining = 3 - preview.length;
-            const extra = [...MODULES, ...customModules]
+            const extra = MODULES
                 .filter(m => !preview.includes(m))
                 .slice(0, remaining);
             preview = [...preview, ...extra];
         }
 
         modulesPreview.innerHTML = preview.map((module, i) => {
-            const isCustom = customModules.some(cm => cm.id === module.id);
             const done = progress[module.id] === true;
             return `
                 <div class="module-card ${done ? 'completed' : ''}">
                     <div class="module-card-header">
-                        <div class="module-number">${isCustom ? '📥' : getModuleIcon(MODULES.indexOf(module))}</div>
+                        <div class="module-number">${getModuleIcon(MODULES.indexOf(module))}</div>
                         <div class="module-info">
-                            <h3 class="module-name">${module.name}${isCustom ? ' <span class="module-badge-custom">Импорт</span>' : ''}</h3>
+                            <h3 class="module-name">${module.name}</h3>
                             <p class="module-desc">${module.desc}</p>
                         </div>
                     </div>
@@ -212,7 +189,8 @@ function renderHome() {
 }
 
 function getModuleIcon(index) {
-    if (index < MODULE_ICONS.length) return MODULE_ICONS[index];
+    const mod = MODULES[index];
+    if (mod && mod.icon) return mod.icon;
     return '📚';
 }
 
@@ -226,79 +204,25 @@ function renderModules() {
     const grid = document.getElementById('modulesList');
     if (!grid) return;
 
-    const builtIn = MODULES;
-    const imported = customModules;
-
-    let html = '';
-
-    // Built-in modules group
-    if (builtIn.length > 0) {
-        html += `
-            <div class="modules-group">
-                <h2 class="modules-group__title">📚 Основной курс</h2>
-                <div class="modules-group__grid">
-                    ${builtIn.map((module, i) => {
-                        const done = progress[module.id] === true;
-                        return `
-                            <div class="module-card ${done ? 'completed' : ''}" style="animation-delay: ${i * 0.03}s">
-                                <div class="module-card-header">
-                                    <div class="module-number">${getModuleIcon(i)}</div>
-                                    <div class="module-info">
-                                        <h3 class="module-name">${module.name}</h3>
-                                        <p class="module-desc">${module.desc}</p>
-                                    </div>
-                                </div>
-                                <div class="module-card-actions">
-                                    <button class="btn btn-study" onclick="navigateTo('module', ${module.id})">Изучить</button>
-                                    <button class="btn btn-complete ${done ? 'is-completed' : ''}" onclick="toggleComplete(${module.id})">
-                                        ${done ? '✓ Завершено' : 'Завершить'}
-                                    </button>
-                                </div>
-                            </div>`;
-                    }).join('')}
+    grid.innerHTML = MODULES.map((module, i) => {
+        const done = progress[module.id] === true;
+        return `
+            <div class="module-card ${done ? 'completed' : ''}" style="animation-delay: ${i * 0.03}s">
+                <div class="module-card-header">
+                    <div class="module-number">${getModuleIcon(i)}</div>
+                    <div class="module-info">
+                        <h3 class="module-name">${module.name}</h3>
+                        <p class="module-desc">${module.desc}</p>
+                    </div>
+                </div>
+                <div class="module-card-actions">
+                    <button class="btn btn-study" onclick="navigateTo('module', ${module.id})">Изучить</button>
+                    <button class="btn btn-complete ${done ? 'is-completed' : ''}" onclick="toggleComplete(${module.id})">
+                        ${done ? '✓ Завершено' : 'Завершить'}
+                    </button>
                 </div>
             </div>`;
-    }
-
-    // Imported modules group
-    if (imported.length > 0) {
-        html += `
-            <div class="modules-group">
-                <h2 class="modules-group__title">📥 Мои материалы</h2>
-                <div class="modules-group__grid">
-                    ${imported.map((module, i) => {
-                        const done = progress[module.id] === true;
-                        const globalIdx = builtIn.length + i;
-                        return `
-                            <div class="module-card module-card--custom ${done ? 'completed' : ''}" style="animation-delay: ${(builtIn.length + i) * 0.03}s">
-                                <div class="module-card-header">
-                                    <div class="module-number">${getModuleIcon(globalIdx)}</div>
-                                    <div class="module-info">
-                                        <h3 class="module-name">${module.name} <span class="module-badge-custom">Импорт</span></h3>
-                                        <p class="module-desc">${module.desc}</p>
-                                    </div>
-                                </div>
-                                <div class="module-card-actions">
-                                    <button class="btn btn-study" onclick="navigateTo('module', ${module.id})">Изучить</button>
-                                    <button class="btn btn-complete ${done ? 'is-completed' : ''}" onclick="toggleComplete(${module.id})">
-                                        ${done ? '✓ Завершено' : 'Завершить'}
-                                    </button>
-                                </div>
-                            </div>`;
-                    }).join('')}
-                </div>
-            </div>`;
-    }
-
-    // Empty state
-    if (!html) {
-        html = `
-            <div class="modules-empty">
-                <p>Модулей пока нет</p>
-            </div>`;
-    }
-
-    grid.innerHTML = html;
+    }).join('');
 }
 
 // === Markdown Parser ===
@@ -335,11 +259,15 @@ function parseMarkdown(text) {
 }
 
 // === Module Content Loader (files only) ===
+function getModuleFile(moduleId) {
+    const mod = MODULES.find(m => m.id === moduleId);
+    return mod ? mod.file : 'module-' + String(moduleId).padStart(2, '0') + '.md';
+}
+
 async function loadModuleContent(moduleId) {
-    const padId = String(moduleId).padStart(2, '0');
-    const url = 'modules/module-' + padId + '.md';
+    const file = getModuleFile(moduleId);
     try {
-        const response = await fetch(url);
+        const response = await fetch('modules/' + file);
         if (!response.ok) return null;
         const text = await response.text();
         return parseMarkdown(text);
@@ -349,10 +277,9 @@ async function loadModuleContent(moduleId) {
 }
 
 async function loadModuleRawContent(moduleId) {
-    const padId = String(moduleId).padStart(2, '0');
-    const url = 'modules/module-' + padId + '.md';
+    const file = getModuleFile(moduleId);
     try {
-        const response = await fetch(url);
+        const response = await fetch('modules/' + file);
         if (!response.ok) return '';
         return await response.text();
     } catch {
@@ -684,74 +611,6 @@ function resetProgress() {
     renderHome();
 }
 
-// === Module Import ===
-function triggerImportModule() {
-    document.getElementById('importModuleInput').click();
-}
-
-async function handleImportModule(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    // Only accept .md files for now (extensible for .pdf, .json later)
-    const ext = file.name.split('.').pop().toLowerCase();
-    if (ext !== 'md') {
-        showToast('Пока поддерживается только импорт Markdown (.md) файлов');
-        event.target.value = '';
-        return;
-    }
-
-    try {
-        const text = await file.text();
-
-        // Extract title from first heading or use filename
-        let name = file.name.replace(/\.md$/i, '');
-        const titleMatch = text.match(/^#\s+(.+)$/m);
-        if (titleMatch) {
-            name = titleMatch[1].trim();
-        }
-
-        // Extract description from first paragraph
-        let desc = '';
-        const lines = text.split('\n');
-        for (const line of lines) {
-            const trimmed = line.trim();
-            if (trimmed && !trimmed.startsWith('#') && !trimmed.startsWith('```')) {
-                desc = trimmed.substring(0, 150);
-                break;
-            }
-        }
-        if (!desc) desc = 'Импортированный модуль';
-
-        // Generate unique ID (above 18 to avoid conflicts with built-in modules)
-        const maxId = Math.max(18, ...customModules.map(m => m.id));
-        const newId = maxId + 1;
-
-        const newModule = {
-            id: newId,
-            name: name,
-            desc: desc,
-            imported: true,
-            importedAt: new Date().toISOString(),
-            fileName: file.name,
-        };
-
-        // Save module metadata only
-        customModules.push(newModule);
-        saveCustomModules(customModules);
-
-        // Re-render modules list and navigate to it
-        showToast('Модуль "' + name + '" импортирован');
-        navigateTo('modules');
-    } catch (err) {
-        showToast('Ошибка при импорте файла');
-        console.error('Import error:', err);
-    }
-
-    // Reset file input
-    event.target.value = '';
-}
-
 // === Checklist Templates ===
 const CHECKLIST_TEMPLATES = [
     {
@@ -1024,7 +883,6 @@ function renderSettings() {
     const moduleCount = Object.values(progress).filter(Boolean).length;
     const total = getTotalModules();
     const checklistCount = checklistsData.lists.length;
-    const customCount = customModules.length;
 
     container.innerHTML = `
         <div class="settings-group">
@@ -1032,7 +890,7 @@ function renderSettings() {
             <div class="settings-item">
                 <div class="settings-item__info">
                     <div class="settings-item__label">Экспорт данных</div>
-                    <div class="settings-item__desc">Сохранить прогресс, заметки, чек-листы и импортированные модули в JSON-файл</div>
+                    <div class="settings-item__desc">Сохранить прогресс, заметки и чек-листы в JSON-файл</div>
                 </div>
                 <button class="btn btn--primary" onclick="exportData()">Экспортировать</button>
             </div>
@@ -1046,7 +904,7 @@ function renderSettings() {
             <div class="settings-item">
                 <div class="settings-item__info">
                     <div class="settings-item__label">Сбросить всё</div>
-                    <div class="settings-item__desc">Удалить весь прогресс, заметки, чек-листы и импортированные модули</div>
+                    <div class="settings-item__desc">Удалить весь прогресс, заметки и чек-листы</div>
                 </div>
                 <button class="btn btn-danger" onclick="resetAll()">Сбросить</button>
             </div>
@@ -1075,12 +933,6 @@ function renderSettings() {
             </div>
             <div class="settings-item">
                 <div class="settings-item__info">
-                    <div class="settings-item__label">Импортированных модулей</div>
-                    <div class="settings-item__desc">${customCount}</div>
-                </div>
-            </div>
-            <div class="settings-item">
-                <div class="settings-item__info">
                     <div class="settings-item__label">Чек-листов создано</div>
                     <div class="settings-item__desc">${checklistCount}</div>
                 </div>
@@ -1102,12 +954,11 @@ function renderSettings() {
 // === Export / Import ===
 function exportData() {
     const data = {
-        version: 5,
+        version: 6,
         exportedAt: new Date().toISOString(),
         progress,
         notes,
         checklists: checklistsData,
-        customModules,
         pdfAttachments,
         theme: document.documentElement.getAttribute('data-theme'),
     };
@@ -1135,7 +986,6 @@ function importData() {
                 if (data.progress) { progress = data.progress; saveProgress(progress); }
                 if (data.notes) { notes = data.notes; saveNotes(notes); }
                 if (data.checklists) { checklistsData = data.checklists; saveChecklists(checklistsData); }
-                if (data.customModules) { customModules = data.customModules; saveCustomModules(customModules); }
                 if (data.pdfAttachments) { pdfAttachments = data.pdfAttachments; savePdfAttachments(pdfAttachments); }
                 if (data.theme) { document.documentElement.setAttribute('data-theme', data.theme); saveTheme(data.theme); }
                 showToast('Данные импортированы');
@@ -1154,12 +1004,10 @@ function resetAll() {
     progress = {};
     notes = {};
     checklistsData = { lists: [] };
-    customModules = [];
     pdfAttachments = {};
     saveProgress(progress);
     saveNotes(notes);
     saveChecklists(checklistsData);
-    saveCustomModules(customModules);
     savePdfAttachments(pdfAttachments);
     showToast('Все данные сброшены');
     navigateTo('home');
@@ -1191,12 +1039,12 @@ const App = {
     goHome() { navigateTo('home'); },
     navigateTo(page) { navigateTo(page); },
     openCreateChecklist() { openCreateChecklist(); },
-    importModule() { triggerImportModule(); },
 };
 
 // === Init ===
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     loadTheme();
+    await loadManifest();
 
     document.getElementById('themeToggle').addEventListener('click', toggleTheme);
     document.getElementById('mobileMenuBtn').addEventListener('click', toggleMobileMenu);
