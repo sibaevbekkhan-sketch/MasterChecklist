@@ -24,7 +24,6 @@ const STORAGE_KEY = 'master_academy_progress';
 const NOTES_KEY = 'master_academy_notes';
 const THEME_KEY = 'master_academy_theme';
 const CHECKLISTS_KEY = 'master_checklist_data';
-const MODULE_PDF_KEY = 'master_module_pdf';
 
 function loadProgress() {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch { return {}; }
@@ -69,17 +68,6 @@ function saveChecklists(data) {
 }
 
 let checklistsData = loadChecklists();
-
-// === PDF Attachments Storage ===
-function loadPdfAttachments() {
-    try { return JSON.parse(localStorage.getItem(MODULE_PDF_KEY)) || {}; } catch { return {}; }
-}
-
-function savePdfAttachments(data) {
-    localStorage.setItem(MODULE_PDF_KEY, JSON.stringify(data));
-}
-
-let pdfAttachments = loadPdfAttachments();
 
 function getAllModules() {
     return MODULES;
@@ -276,17 +264,6 @@ async function loadModuleContent(moduleId) {
     }
 }
 
-async function loadModuleRawContent(moduleId) {
-    const file = getModuleFile(moduleId);
-    try {
-        const response = await fetch('modules/' + file);
-        if (!response.ok) return '';
-        return await response.text();
-    } catch {
-        return '';
-    }
-}
-
 // === Render: Module Detail ===
 async function renderModuleDetail(moduleId) {
     const allModules = getAllModules();
@@ -295,12 +272,19 @@ async function renderModuleDetail(moduleId) {
 
     currentModuleId = moduleId;
     const idx = allModules.indexOf(module);
-    const done = progress[module.id] === true;
     const noteText = notes[moduleId] || '';
-    const pdfData = pdfAttachments[moduleId];
 
     const container = document.getElementById('moduleDetail');
     if (!container) return;
+
+    // Check if PDF exists for this module
+    const padId = String(moduleId).padStart(2, '0');
+    const pdfUrl = 'pdf/module-' + padId + '.pdf';
+    let hasPdf = false;
+    try {
+        const resp = await fetch(pdfUrl, { method: 'HEAD' });
+        hasPdf = resp.ok;
+    } catch {}
 
     container.innerHTML = `
         <button class="btn-back" onclick="navigateTo('modules')">
@@ -314,73 +298,37 @@ async function renderModuleDetail(moduleId) {
                 <p class="detail-desc">${module.desc}</p>
             </div>
 
-            <div class="editor-wrapper">
-                <div class="editor-panel">
-                    <div class="editor-panel__header">
-                        <div class="editor-panel__tabs">
-                            <button class="editor-tab active" id="tabEdit" onclick="switchEditorTab('edit')">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                                Исходный текст
-                            </button>
-                            <button class="editor-tab" id="tabPreview" onclick="switchEditorTab('preview')">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                                Просмотр
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="editor-body">
-                        <div class="editor-pane" id="editorPane">
-                            <textarea class="editor-textarea" id="moduleEditor" readonly spellcheck="false" placeholder="Загрузка..."></textarea>
-                        </div>
-                        <div class="editor-pane editor-pane--preview" id="previewPane" style="display:none">
-                            <div class="module-content" id="modulePreview">
-                                <div class="editor-empty-state">
-                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                                    <p>Нажмите «Просмотр», чтобы увидеть отформатированный материал</p>
-                                </div>
-                            </div>
-                        </div>
+            <div class="detail-section">
+                <div class="module-content" id="moduleContent">
+                    <div class="editor-empty-state">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                        <p>Загрузка...</p>
                     </div>
                 </div>
             </div>
 
+            ${hasPdf ? `
             <div class="presentation-block">
                 <div class="presentation-block__header">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                     <span>Презентация</span>
                 </div>
-                <div class="presentation-block__body" id="presentationBody">
-                    ${pdfData ? `
-                        <div class="presentation-attached">
-                            <div class="presentation-file">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                                <span class="presentation-file__name">${escHtml(pdfData.name)}</span>
-                            </div>
-                            <div class="presentation-actions">
-                                <button class="btn btn-study" onclick="openPdfPresentation(${moduleId})">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                                    Открыть презентацию
-                                </button>
-                                <button class="btn btn--outline" onclick="replacePdfPresentation(${moduleId})">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-                                    Заменить PDF
-                                </button>
-                            </div>
+                <div class="presentation-block__body">
+                    <div class="presentation-attached">
+                        <div class="presentation-file">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                            <span class="presentation-file__name">module-${padId}.pdf</span>
                         </div>
-                    ` : `
-                        <div class="presentation-empty">
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-                            <p>Презентация не прикреплена</p>
-                            <button class="btn btn--outline" onclick="attachPdfPresentation(${moduleId})">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-                                Прикрепить PDF
+                        <div class="presentation-actions">
+                            <button class="btn btn-study" onclick="window.open('${pdfUrl}', '_blank')">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                                Открыть презентацию
                             </button>
                         </div>
-                    `}
+                    </div>
                 </div>
-                <input type="file" id="pdfFileInput" accept=".pdf" style="display:none" onchange="handlePdfFile(event)">
             </div>
+            ` : ''}
 
             <div class="notes-compact">
                 <div class="notes-compact__header" onclick="toggleNotesBlock()">
@@ -401,94 +349,18 @@ async function renderModuleDetail(moduleId) {
             </div>
         </div>`;
 
-    // Load saved content into editor
-    const rawContent = await loadModuleRawContent(moduleId);
-    const editor = document.getElementById('moduleEditor');
-    if (editor) editor.value = rawContent;
-}
-
-// === Editor Tabs ===
-let currentEditorTab = 'edit';
-
-function switchEditorTab(tab) {
-    currentEditorTab = tab;
-    const editorPane = document.getElementById('editorPane');
-    const previewPane = document.getElementById('previewPane');
-    const tabEdit = document.getElementById('tabEdit');
-    const tabPreview = document.getElementById('tabPreview');
-    const preview = document.getElementById('modulePreview');
-    const editor = document.getElementById('moduleEditor');
-
-    if (!editorPane || !previewPane) return;
-
-    if (tab === 'preview') {
-        if (preview && editor) {
-            const md = editor.value.trim();
-            preview.innerHTML = md ? parseMarkdown(md) : '<div class="editor-empty-state"><p>Материал пока не добавлен</p></div>';
-        }
-        editorPane.style.display = 'none';
-        previewPane.style.display = '';
-        tabEdit.classList.remove('active');
-        tabPreview.classList.add('active');
-    } else {
-        editorPane.style.display = '';
-        previewPane.style.display = 'none';
-        tabEdit.classList.add('active');
-        tabPreview.classList.remove('active');
+    // Load Markdown content
+    const contentEl = document.getElementById('moduleContent');
+    const mdContent = await loadModuleContent(moduleId);
+    if (contentEl) {
+        contentEl.innerHTML = mdContent || '<div class="editor-empty-state"><p>Материал пока не добавлен</p></div>';
     }
 }
 
 // === PDF Presentation ===
-let currentPdfModuleId = null;
-
-function attachPdfPresentation(moduleId) {
-    currentPdfModuleId = moduleId;
-    document.getElementById('pdfFileInput').click();
-}
-
-function replacePdfPresentation(moduleId) {
-    currentPdfModuleId = moduleId;
-    document.getElementById('pdfFileInput').click();
-}
-
-function handlePdfFile(event) {
-    const file = event.target.files[0];
-    if (!file || !currentPdfModuleId) return;
-
-    if (file.type !== 'application/pdf') {
-        showToast('Выберите PDF-файл');
-        event.target.value = '';
-        return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        pdfAttachments[currentPdfModuleId] = {
-            name: file.name,
-            data: e.target.result,
-            attachedAt: new Date().toISOString(),
-        };
-        savePdfAttachments(pdfAttachments);
-        showToast('Презентация прикреплена');
-        renderModuleDetail(currentPdfModuleId);
-        currentPdfModuleId = null;
-    };
-    reader.readAsDataURL(file);
-    event.target.value = '';
-}
-
 function openPdfPresentation(moduleId) {
-    const pdf = pdfAttachments[moduleId];
-    if (!pdf || !pdf.data) return;
-    const win = window.open();
-    if (win) {
-        win.document.write(`
-            <html><head><title>${pdf.name}</title></head>
-            <body style="margin:0"><embed src="${pdf.data}" type="application/pdf" width="100%" height="100%"></body></html>
-        `);
-    } else {
-        showToast('Разрешите всплывающие окна для открытия PDF');
-    }
+    const padId = String(moduleId).padStart(2, '0');
+    window.open('pdf/module-' + padId + '.pdf', '_blank');
 }
 
 function toggleNotesBlock() {
@@ -954,12 +826,11 @@ function renderSettings() {
 // === Export / Import ===
 function exportData() {
     const data = {
-        version: 6,
+        version: 7,
         exportedAt: new Date().toISOString(),
         progress,
         notes,
         checklists: checklistsData,
-        pdfAttachments,
         theme: document.documentElement.getAttribute('data-theme'),
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -986,7 +857,6 @@ function importData() {
                 if (data.progress) { progress = data.progress; saveProgress(progress); }
                 if (data.notes) { notes = data.notes; saveNotes(notes); }
                 if (data.checklists) { checklistsData = data.checklists; saveChecklists(checklistsData); }
-                if (data.pdfAttachments) { pdfAttachments = data.pdfAttachments; savePdfAttachments(pdfAttachments); }
                 if (data.theme) { document.documentElement.setAttribute('data-theme', data.theme); saveTheme(data.theme); }
                 showToast('Данные импортированы');
                 navigateTo('home');
@@ -1004,11 +874,9 @@ function resetAll() {
     progress = {};
     notes = {};
     checklistsData = { lists: [] };
-    pdfAttachments = {};
     saveProgress(progress);
     saveNotes(notes);
     saveChecklists(checklistsData);
-    savePdfAttachments(pdfAttachments);
     showToast('Все данные сброшены');
     navigateTo('home');
 }
