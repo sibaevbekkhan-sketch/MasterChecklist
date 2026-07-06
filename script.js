@@ -289,11 +289,6 @@ async function renderModuleDetail(moduleId) {
             Назад к модулям
         </button>
         <div class="module-detail">
-            <div class="module-detail-header">
-                <div class="detail-number">${getModuleIcon(idx)} Модуль ${module.id}</div>
-                <h1 class="detail-title">${module.name}</h1>
-            </div>
-
             <div class="detail-section">
                 <div class="module-content" id="moduleContent">
                     <div class="editor-empty-state">
