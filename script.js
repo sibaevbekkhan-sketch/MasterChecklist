@@ -179,31 +179,58 @@ function renderModules() {
 
 // === Markdown Parser ===
 function parseMarkdown(text) {
-    let html = text
-        .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
-        .replace(/`([^`]+)`/g, '<code>$1</code>')
-        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-        .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
-        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.+?)\*/g, '<em>$1</em>')
-        .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width:100%;border-radius:8px;margin:8px 0">')
-        .replace(/^---+$/gm, '<hr style="border:none;border-top:1px solid var(--border);margin:24px 0">')
-        .replace(/^- (.+)$/gm, '<li>$1</li>');
+    // Strip first # heading — it's already shown in module detail header
+    text = text.replace(/^#\s+.+\n?/, '');
 
-    html = html.replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
-
-    html = html.split('\n').map(line => {
-        const trimmed = line.trim();
+    // Split into blocks separated by blank lines
+    const blocks = text.split(/\n{2,}/);
+    const htmlBlocks = blocks.map(block => {
+        const trimmed = block.trim();
         if (!trimmed) return '';
-        if (/^<(h[1-6]|ul|ol|li|pre|code|blockquote|hr|table|img)/.test(trimmed)) return line;
-        if (/<\/(h[1-6]|ul|ol|li|pre|code|blockquote|table)>$/.test(trimmed)) return line;
-        if (/<img[^>]*>$/.test(trimmed)) return line;
-        return '<p>' + trimmed + '</p>';
-    }).join('\n');
 
-    return html;
+        // Code block
+        if (/^```/.test(trimmed)) {
+            return trimmed.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+        }
+
+        // List items
+        const lines = trimmed.split('\n');
+        const isList = lines.every(l => /^[-*]\s/.test(l.trim()));
+        if (isList) {
+            const items = lines.map(l => '<li>' + l.trim().replace(/^[-*]\s+/, '') + '</li>').join('\n');
+            return '<ul>\n' + items + '\n</ul>';
+        }
+
+        // Heading
+        const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/m);
+        if (headingMatch) {
+            const level = headingMatch[1].length;
+            return '<h' + level + '>' + headingMatch[2] + '</h' + level + '>';
+        }
+
+        // Horizontal rule
+        if (/^---+$/.test(trimmed)) {
+            return '<hr style="border:none;border-top:1px solid var(--border);margin:24px 0">';
+        }
+
+        // Paragraph — wrap each line
+        return lines.map(l => {
+            const lt = l.trim();
+            if (!lt) return '';
+            // Already a tag line
+            if (/^<(h[1-6]|ul|ol|li|pre|code|blockquote|hr|table|img)/.test(lt)) return lt;
+            // Inline formatting
+            let formatted = lt
+                .replace(/`([^`]+)`/g, '<code>$1</code>')
+                .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width:100%;border-radius:8px;margin:8px 0">');
+            return '<p>' + formatted + '</p>';
+        }).join('\n');
+    });
+
+    return htmlBlocks.filter(b => b).join('\n\n');
 }
 
 // === Module Content ===
@@ -265,7 +292,6 @@ async function renderModuleDetail(moduleId) {
             <div class="module-detail-header">
                 <div class="detail-number">${getModuleIcon(idx)} Модуль ${module.id}</div>
                 <h1 class="detail-title">${module.name}</h1>
-                <p class="detail-desc">${module.desc}</p>
             </div>
 
             <div class="detail-section">
