@@ -1,4 +1,4 @@
-const CACHE_NAME = 'master-checklist-v2';
+const CACHE_NAME = 'master-checklist-v3';
 const PRECACHE = [
     './',
     './index.html',
